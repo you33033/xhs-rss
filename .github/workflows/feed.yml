@@ -1,0 +1,57 @@
+name: 更新小红书订阅
+
+on:
+  schedule:
+    # 每 3 小时一次（UTC），避开整点
+    - cron: "23 */3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "config.json"
+      - "scripts/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xhs-feed
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 检查 Secret
+        env:
+          XHS_COOKIE: ${{ secrets.XHS_COOKIE }}
+        run: |
+          if [ -z "$XHS_COOKIE" ]; then
+            echo "::error::还没设置 XHS_COOKIE。到 Settings → Secrets and variables → Actions 里新建一个 Secret。"
+            exit 1
+          fi
+
+      - name: 生成订阅
+        env:
+          XHS_COOKIE: ${{ secrets.XHS_COOKIE }}
+        run: python scripts/build_feed.py
+
+      - name: 发布到 gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
+          keep_files: true
+          commit_message: "更新订阅 ${{ github.run_number }}"
