@@ -1,9 +1,4 @@
 {
   "feed_limit": 20,
-  "users": [
-    {
-      "sec_user_id": "MS4wLjABAAAAuS-XVIIMObATT43En1ncr9gMDtfExivbx1xYMMoFiLc",
-      "nickname": "一只水獭"
-    }
-  ]
+  "users": []
 }
