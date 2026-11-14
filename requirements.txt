@@ -1,3 +1,0 @@
-xhs>=0.2.13
-xhshow>=0.2.0
-requests>=2.28
