@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: xhs-feed
@@ -55,3 +56,41 @@ jobs:
           publish_branch: gh-pages
           keep_files: true
           commit_message: "更新订阅 ${{ github.run_number }}"
+
+      - name: 恢复后关闭提醒
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+                --search 'in:title "订阅更新失败"' --json number -q '.[0].number' || true)
+          if [ -n "$num" ]; then
+            gh issue close "$num" --repo "$GITHUB_REPOSITORY" \
+              --comment "订阅已恢复正常，自动关闭这条提醒。"
+          fi
+
+      - name: 失败时开 Issue 提醒
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+                --search 'in:title "订阅更新失败"' --json number -q '.[0].number' || true)
+          if [ -n "$num" ]; then
+            echo "已有未关闭的提醒 Issue，跳过，避免刷屏"
+            exit 0
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "⚠️ 订阅更新失败（多半是小红书 Cookie 过期）" \
+            --body "@${{ github.repository_owner }} 订阅更新失败了。
+
+          **怎么修**
+
+          1. 手机打开本机页面 \`http://127.0.0.1:8765\`，重新扫码登录小红书
+          2. 点「复制 Cookie」
+          3. 到仓库 **Settings → Secrets and variables → Actions**，更新 \`XHS_COOKIE\`
+          4. 回到 **Actions** 点一次 **Run workflow**
+
+          失败详情：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          恢复后这条 Issue 会自动关闭。"
