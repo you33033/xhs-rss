@@ -1,0 +1,69 @@
+name: 添加博主
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  reject:
+    if: github.actor != github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body "只有仓库主人可以添加博主，这个 Issue 会被关闭。"
+          gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }}
+
+  add:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: 解析并写入 config.json
+        continue-on-error: true
+        env:
+          XHS_COOKIE: ${{ secrets.XHS_COOKIE }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python scripts/add_user.py
+
+      - name: 提交
+        run: |
+          if git diff --quiet -- config.json; then
+            echo "配置没有变化，跳过提交"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config.json
+          git commit -m "添加博主 #${{ github.event.issue.number }}"
+          git push
+
+      - name: 回复并关闭
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f /tmp/add_msg.md ]; then
+            gh issue comment ${{ github.event.issue.number }} \
+              --repo ${{ github.repository }} --body-file /tmp/add_msg.md
+          else
+            gh issue comment ${{ github.event.issue.number }} \
+              --repo ${{ github.repository }} \
+              --body "❌ 处理失败，请检查链接。详情见 Actions 日志。"
+          fi
+          gh issue close ${{ github.event.issue.number }} --repo ${{ github.repository }}
