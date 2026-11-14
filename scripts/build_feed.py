@@ -182,9 +182,12 @@ h1{{font-size:20px;margin:0 0 4px}}p.sub{{color:#767b84;font-size:13px;margin:0 
 code{{display:block;background:#f4f5f7;padding:8px 10px;border-radius:8px;
 font-size:12px;word-break:break-all;margin-top:6px}}
 .ts{{color:#9aa0aa;font-size:12px}}
+.btn{{display:inline-block;background:#ff2442;color:#fff;text-decoration:none;
+border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;margin-bottom:14px}}
 </style></head><body>
 <h1>小红书 RSS</h1>
 <p class="sub">由 GitHub Actions 定时更新 · 最近更新 {now}</p>
+<a class="btn" href="{issues_url}">＋ 添加博主</a>
 {cards}
 <div class="card"><div class="name">全部合成一个源</div>
 <div class="ts">想一个源看所有博主就用这个</div><code>{base}/all.xml</code></div>
@@ -273,8 +276,12 @@ def main():
         f'<code>{base}/feeds/{u["user_id"].lower()}.xml</code></div>'
         for u in users
     )
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    issues_url = (f"https://github.com/{repo}/issues/new?template=add-blogger.yml"
+                  if repo else "#")
     write(os.path.join(PUBLIC, "index.html"),
-          INDEX_HTML.format(now=stamp, cards=cards, base=base))
+          INDEX_HTML.format(now=stamp, cards=cards, base=base,
+                            issues_url=issues_url))
     write(os.path.join(PUBLIC, ".nojekyll"), "")
 
     if failed:
