@@ -1,0 +1,22 @@
+name: 添加小红书博主
+description: 粘贴主页链接，自动加进 RSS 订阅
+title: "[添加博主] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        粘一个主页链接就行。提交后机器人会自动解析、写入配置并重新抓取，大约 1 分钟。
+  - type: input
+    id: link
+    attributes:
+      label: 博主主页链接
+      description: 支持主页链接、小红书分享链接、或 24 位 user_id
+      placeholder: https://www.xiaohongshu.com/user/profile/...
+    validations:
+      required: true
+  - type: input
+    id: nickname
+    attributes:
+      label: 备注名（可选）
+      description: 留空就自动用博主昵称
+      placeholder: 比如：某某老师
