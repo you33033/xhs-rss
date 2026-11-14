@@ -62,8 +62,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
-                --search 'in:title "订阅更新失败"' --json number -q '.[0].number' || true)
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 50 \
+                --json number,title --jq '.[] | select(.title | contains("订阅更新失败")) | .number' \
+                | head -1 || true)
           if [ -n "$num" ]; then
             gh issue close "$num" --repo "$GITHUB_REPOSITORY" \
               --comment "订阅已恢复正常，自动关闭这条提醒。"
@@ -74,8 +75,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
-                --search 'in:title "订阅更新失败"' --json number -q '.[0].number' || true)
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 50 \
+                --json number,title --jq '.[] | select(.title | contains("订阅更新失败")) | .number' \
+                | head -1 || true)
           if [ -n "$num" ]; then
             echo "已有未关闭的提醒 Issue，跳过，避免刷屏"
             exit 0
