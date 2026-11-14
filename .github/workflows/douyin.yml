@@ -1,0 +1,80 @@
+name: 更新抖音订阅
+
+on:
+  schedule:
+    # 每 6 小时一次（抖音风控比小红书严，别太频繁）
+    - cron: "13 */6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "douyin.json"
+      - "scripts/build_douyin.py"
+      - ".github/workflows/douyin.yml"
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: douyin-feed
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: 检查 Secret
+        env:
+          DOUYIN_COOKIE: ${{ secrets.DOUYIN_COOKIE }}
+        run: |
+          if [ -z "$DOUYIN_COOKIE" ]; then
+            echo "::error::还没设置 DOUYIN_COOKIE"
+            exit 1
+          fi
+
+      - name: 生成抖音订阅
+        env:
+          DOUYIN_COOKIE: ${{ secrets.DOUYIN_COOKIE }}
+        run: python scripts/build_douyin.py
+
+      - name: 发布到 gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
+          keep_files: true
+          commit_message: "更新抖音订阅 ${{ github.run_number }}"
+
+      - name: 失败时开 Issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          num=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 50 \
+                --json number,title --jq '.[] | select(.title | contains("抖音订阅失败")) | .number' \
+                | head -1 || true)
+          if [ -n "$num" ]; then
+            echo "已有提醒 Issue"; exit 0
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "⚠️ 抖音订阅失败（多半是 Cookie 过期）" \
+            --body "@${{ github.repository_owner }} 抖音订阅更新失败了。
+
+          **怎么修**：重新拿一份抖音 Cookie（电脑浏览器 F12 → Network → 请求头里的 cookie），
+          在仓库 **Settings → Secrets and variables → Actions** 更新 \`DOUYIN_COOKIE\`。
+
+          详情：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
